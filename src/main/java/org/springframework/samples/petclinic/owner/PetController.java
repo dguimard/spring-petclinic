@@ -15,34 +15,48 @@
  */
 package org.springframework.samples.petclinic.owner;
 
+import org.springframework.samples.petclinic.views.CreateOrUpdatePetForm;
+import org.springframework.samples.petclinic.views.fragments.Layout;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.WebDataBinder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import java.io.IOException;
 import java.util.Collection;
 
 /**
  * @author Juergen Hoeller
  * @author Ken Krebs
  * @author Arjen Poutsma
+ * @author Miguel Gamboa
+ *
+ * This controller is based on seminal implementation for Thymeleaf and modified
+ * for HtmlFlow.
  */
 @Controller
 @RequestMapping("/owners/{ownerId}")
 class PetController {
 
-	private static final String VIEWS_PETS_CREATE_OR_UPDATE_FORM = "pets/createOrUpdatePetForm";
+    private final CreateOrUpdatePetForm petsForm;
 
-	private final PetRepository pets;
+    private final PetRepository pets;
 
 	private final OwnerRepository owners;
 
-	public PetController(PetRepository pets, OwnerRepository owners) {
+    public PetController(PetRepository pets, OwnerRepository owners, CreateOrUpdatePetForm petsForm) {
 		this.pets = pets;
 		this.owners = owners;
+		this.petsForm = petsForm;
 	}
 
 	@ModelAttribute("types")
@@ -66,47 +80,70 @@ class PetController {
 	}
 
 	@GetMapping("/pets/new")
+	@ResponseBody
 	public String initCreationForm(Owner owner, ModelMap model) {
 		Pet pet = new Pet();
 		owner.addPet(pet);
-		model.put("pet", pet);
-		return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+		return Layout.view.render(pet, petsForm.view);
 	}
 
 	@PostMapping("/pets/new")
-	public String processCreationForm(Owner owner, @Valid Pet pet, BindingResult result, ModelMap model) {
+	@ResponseBody
+	public String processCreationForm(
+	    Owner owner,
+	    @Valid Pet pet,
+	    BindingResult result,
+	    ModelMap model,
+	    HttpServletResponse response) throws IOException
+    {
+	    // !!!! To Do: Validate duplications and present corresponding errors
+	    /*
 		if (StringUtils.hasLength(pet.getName()) && pet.isNew() && owner.getPet(pet.getName(), true) != null) {
 			result.rejectValue("name", "duplicate", "already exists");
 		}
+		*/
 		owner.addPet(pet);
 		if (result.hasErrors()) {
-			model.put("pet", pet);
-			return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+			// model.put("pet", pet);
+			pet = new Pet(); // Clear pet to format view as add new operation.
+		    owner.addPet(pet);
+			return Layout.view.render(null, petsForm.view);
 		}
 		else {
 			this.pets.save(pet);
-			return "redirect:/owners/{ownerId}";
+			response.sendRedirect("/owners/" + owner.getId());
+			return "";
 		}
 	}
 
 	@GetMapping("/pets/{petId}/edit")
-	public String initUpdateForm(@PathVariable("petId") int petId, ModelMap model) {
+	@ResponseBody
+	public String initUpdateForm(@PathVariable("petId") int petId) {
 		Pet pet = this.pets.findById(petId);
-		model.put("pet", pet);
-		return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+		return Layout.view.render(pet, petsForm.view);
 	}
 
 	@PostMapping("/pets/{petId}/edit")
-	public String processUpdateForm(@Valid Pet pet, BindingResult result, Owner owner, ModelMap model) {
+	@ResponseBody
+	public String processUpdateForm(
+	    @Valid Pet pet,
+	    BindingResult result,
+	    Owner owner,
+	    ModelMap model,
+	    HttpServletResponse response,
+	    @PathVariable("petId") int petId) throws IOException
+    {
 		if (result.hasErrors()) {
 			pet.setOwner(owner);
 			model.put("pet", pet);
-			return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
+			return Layout.view.render(pet, petsForm.view);
 		}
 		else {
-			owner.addPet(pet);
+		    pet.setId(petId);
+			pet.setOwner(owner);
 			this.pets.save(pet);
-			return "redirect:/owners/{ownerId}";
+			response.sendRedirect("/owners/" + owner.getId());
+			return "";
 		}
 	}
 

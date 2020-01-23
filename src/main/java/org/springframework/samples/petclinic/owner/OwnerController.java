@@ -15,6 +15,11 @@
  */
 package org.springframework.samples.petclinic.owner;
 
+import org.springframework.samples.petclinic.views.CreateOrUpdateOwnerForm;
+import org.springframework.samples.petclinic.views.OwnerDetails;
+import org.springframework.samples.petclinic.views.OwnersFind;
+import org.springframework.samples.petclinic.views.OwnersList;
+import org.springframework.samples.petclinic.views.fragments.Layout;
 import org.springframework.samples.petclinic.visit.VisitRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,9 +29,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.bind.annotation.ResponseBody;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 
@@ -35,11 +42,13 @@ import java.util.Map;
  * @author Ken Krebs
  * @author Arjen Poutsma
  * @author Michael Isvy
+ * @author Miguel Gamboa
+ *
+ * This controller is based on seminal implementation for Thymeleaf and modified
+ * for HtmlFlow.
  */
 @Controller
 class OwnerController {
-
-	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
 
 	private final OwnerRepository owners;
 
@@ -56,30 +65,35 @@ class OwnerController {
 	}
 
 	@GetMapping("/owners/new")
+	@ResponseBody
 	public String initCreationForm(Map<String, Object> model) {
-		Owner owner = new Owner();
-		model.put("owner", owner);
-		return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
+        return Layout.view.render(null, CreateOrUpdateOwnerForm.view);
 	}
 
 	@PostMapping("/owners/new")
-	public String processCreationForm(@Valid Owner owner, BindingResult result) {
+	@ResponseBody
+	public String processCreationForm(@Valid Owner owner, BindingResult result, HttpServletResponse response) throws IOException {
 		if (result.hasErrors()) {
-			return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
+            /**
+             * !!! To Do: add errors from BindingResult to the model to be rendered by the view.
+             */
+			return Layout.view.render(null, CreateOrUpdateOwnerForm.view);
 		}
 		else {
 			this.owners.save(owner);
-			return "redirect:/owners/" + owner.getId();
+			response.sendRedirect("/owners/" + owner.getId());
+			return "";
 		}
 	}
 
 	@GetMapping("/owners/find")
+	@ResponseBody
 	public String initFindForm(Map<String, Object> model) {
-		model.put("owner", new Owner());
-		return "owners/findOwners";
+		return Layout.view.render(null, OwnersFind.view);
 	}
 
 	@GetMapping("/owners")
+	@ResponseBody
 	public String processFindForm(Owner owner, BindingResult result, Map<String, Object> model) {
 
 		// allow parameterless GET request for /owners to return all records
@@ -89,40 +103,35 @@ class OwnerController {
 
 		// find owners by last name
 		Collection<Owner> results = this.owners.findByLastName(owner.getLastName());
-		if (results.isEmpty()) {
-			// no owners found
-			result.rejectValue("lastName", "notFound", "not found");
-			return "owners/findOwners";
-		}
-		else if (results.size() == 1) {
-			// 1 owner found
-			owner = results.iterator().next();
-			return "redirect:/owners/" + owner.getId();
-		}
-		else {
-			// multiple owners found
-			model.put("selections", results);
-			return "owners/ownersList";
-		}
+		return Layout.view.render(results, OwnersList.view);
 	}
 
 	@GetMapping("/owners/{ownerId}/edit")
+	@ResponseBody
 	public String initUpdateOwnerForm(@PathVariable("ownerId") int ownerId, Model model) {
 		Owner owner = this.owners.findById(ownerId);
-		model.addAttribute(owner);
-		return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
+		return Layout.view.render(owner, CreateOrUpdateOwnerForm.view);
 	}
 
 	@PostMapping("/owners/{ownerId}/edit")
-	public String processUpdateOwnerForm(@Valid Owner owner, BindingResult result,
-			@PathVariable("ownerId") int ownerId) {
+	@ResponseBody
+	public String processUpdateOwnerForm(
+	    @Valid Owner owner,
+	    BindingResult result,
+		@PathVariable("ownerId") int ownerId,
+		HttpServletResponse response) throws IOException
+    {
 		if (result.hasErrors()) {
-			return VIEWS_OWNER_CREATE_OR_UPDATE_FORM;
+            /**
+             * !!! To Do: add errors from BindingResult to the model to be rendered by the view.
+             */
+			return Layout.view.render(owner, CreateOrUpdateOwnerForm.view);
 		}
 		else {
 			owner.setId(ownerId);
 			this.owners.save(owner);
-			return "redirect:/owners/{ownerId}";
+			response.sendRedirect("/owners/" + owner.getId());
+			return "";
 		}
 	}
 
@@ -132,14 +141,13 @@ class OwnerController {
 	 * @return a ModelMap with the model attributes for the view
 	 */
 	@GetMapping("/owners/{ownerId}")
-	public ModelAndView showOwner(@PathVariable("ownerId") int ownerId) {
-		ModelAndView mav = new ModelAndView("owners/ownerDetails");
+	@ResponseBody
+	public String showOwner(@PathVariable("ownerId") int ownerId) {
 		Owner owner = this.owners.findById(ownerId);
 		for (Pet pet : owner.getPets()) {
 			pet.setVisitsInternal(visits.findByPetId(pet.getId()));
 		}
-		mav.addObject(owner);
-		return mav;
+		return Layout.view.render(owner, OwnerDetails.view);
 	}
 
 }

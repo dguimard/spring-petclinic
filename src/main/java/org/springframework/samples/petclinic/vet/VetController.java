@@ -15,10 +15,13 @@
  */
 package org.springframework.samples.petclinic.vet;
 
+import org.springframework.samples.petclinic.views.VetList;
+import org.springframework.samples.petclinic.views.fragments.Layout;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -37,13 +40,10 @@ class VetController {
 	}
 
 	@GetMapping("/vets.html")
+	@ResponseBody
 	public String showVetList(Map<String, Object> model) {
-		// Here we are returning an object of type 'Vets' rather than a collection of Vet
-		// objects so it is simpler for Object-Xml mapping
-		Vets vets = new Vets();
-		vets.getVetList().addAll(this.vets.findAll());
-		model.put("vets", vets);
-		return "vets/vetList";
+        Collection<Vet> vets = this.vets.findAll();
+        return Layout.view.render(vets, VetList.view);
 	}
 
 	@GetMapping({ "/vets" })
