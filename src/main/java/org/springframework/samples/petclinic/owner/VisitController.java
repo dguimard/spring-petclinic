@@ -15,10 +15,8 @@
  */
 package org.springframework.samples.petclinic.owner;
 
-import java.util.Map;
-
-import javax.validation.Valid;
-
+import org.springframework.samples.petclinic.views.CreateOrUpdateVisitForm;
+import org.springframework.samples.petclinic.views.fragments.Layout;
 import org.springframework.samples.petclinic.visit.Visit;
 import org.springframework.samples.petclinic.visit.VisitRepository;
 import org.springframework.stereotype.Controller;
@@ -29,6 +27,12 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
+import java.io.IOException;
+import java.util.Map;
 
 /**
  * @author Juergen Hoeller
@@ -36,6 +40,10 @@ import org.springframework.web.bind.annotation.PostMapping;
  * @author Arjen Poutsma
  * @author Michael Isvy
  * @author Dave Syer
+ * @author Miguel Gamboa
+ *
+ * This controller is based on seminal implementation for Thymeleaf and modified
+ * for HtmlFlow.
  */
 @Controller
 class VisitController {
@@ -73,19 +81,35 @@ class VisitController {
 
 	// Spring MVC calls method loadPetWithVisit(...) before initNewVisitForm is called
 	@GetMapping("/owners/*/pets/{petId}/visits/new")
+	@ResponseBody
 	public String initNewVisitForm(@PathVariable("petId") int petId, Map<String, Object> model) {
-		return "pets/createOrUpdateVisitForm";
+	    Pet pet = this.pets.findById(petId);
+		pet.setVisitsInternal(this.visits.findByPetId(petId));
+		return Layout.view.render(pet, CreateOrUpdateVisitForm.view);
 	}
 
 	// Spring MVC calls method loadPetWithVisit(...) before processNewVisitForm is called
 	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/new")
-	public String processNewVisitForm(@Valid Visit visit, BindingResult result) {
+	@ResponseBody
+	public String processNewVisitForm(
+	    @Valid Visit visit,
+	    BindingResult result,
+	    @PathVariable("petId") int petId,
+	    @PathVariable("ownerId") int ownerId,
+	    HttpServletResponse response) throws IOException
+    {
 		if (result.hasErrors()) {
-			return "pets/createOrUpdateVisitForm";
+            /**
+             * !!!!! To Do: parse errors and show them in the visit form.
+             */
+            Pet pet = this.pets.findById(petId);
+            pet.setVisitsInternal(this.visits.findByPetId(petId));
+			return Layout.view.render(pet, CreateOrUpdateVisitForm.view);
 		}
 		else {
 			this.visits.save(visit);
-			return "redirect:/owners/{ownerId}";
+			response.sendRedirect("/owners/" + ownerId);
+			return "";
 		}
 	}
 

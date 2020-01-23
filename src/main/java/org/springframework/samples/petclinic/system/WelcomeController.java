@@ -16,15 +16,19 @@
 
 package org.springframework.samples.petclinic.system;
 
+import org.springframework.samples.petclinic.views.Welcome;
+import org.springframework.samples.petclinic.views.fragments.Layout;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 class WelcomeController {
 
 	@GetMapping("/")
+	@ResponseBody
 	public String welcome() {
-		return "welcome";
+		return Layout.view.render(null, Welcome.view);
 	}
 
 }
